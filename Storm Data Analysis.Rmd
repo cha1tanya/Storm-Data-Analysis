@@ -6,40 +6,38 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE,cache=TRUE)
+knitr::opts_chunk$set(echo = TRUE,cache = TRUE)
 ```
 
 ## Synopsis
 
-Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.
+U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database is available for public use. This database has information on major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
 
-This Coursera project involves exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
+Objective of the document is to explore which types of weather events cause the most amount of damage to public health and/or economy. Secondary objective is to practice data exploration using R. 
 
-The events in the database start in the year 1950 and end in November 2011. In the earlier years of the database there are generally fewer events recorded, most likely due to a lack of good records. More recent years should be considered more complete.
+Since historical data is sparsely polulated, records before 1996 were ignored. One of the key variables, EVTYPE, has been inconsistently coded across years. Effort has been spent to clean this variable up. Simply summarising the FATALITIES and INJURIES variables gave us answers to the first part of our primary objective. For estimating the economic damage, both property and crop damage were considered and adjusted based on the units provided in another variable. Finally total damage is computed, which was summarised by the weather events to answer the second question of interest.
 
-The basic goal of this assignment is to explore the NOAA Storm Database and answer two basic questions about severe weather events: across the United States, which types of events (1) are most harmful with respect to population health and (2) have the greatest economic consequences.
+## Data Download
 
-## Data Processing
-
-First we download from internet the data (a compressed csv file), and load the dataset into memory.
-
-
+Data was downloaded from internet(a compressed csv file), and loaded into a data frame.
 
 ```{r cache=TRUE}
 # download the data file
 download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2","StormData.csv.bz2")
+
 # Read it into data frame 
 StormData <- read.csv("StormData.csv.bz2")
 ```
 
-We can now have a look at the variable names of the NOAA Storm Database:
+## Data Processing
 
+First, some basic checks - What are the columns in the dataset?
 
-```{r echo=FALSE}
-names(StormData)
+```{r}
+names(rawdata)
 ```
 
-For our analysis we only need a few variables, namely: EVTYPE, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP. We create a new smaller dataset containing this subset to speed up the further data manipulation process.
+We might not need all 37 columns for our analysis. Hence, shortlist only a few required variables: EVTYPE, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP. Also, since historical data is sparsely polulated, records before 1996 were ignored. These two will help in speeding up the further steps.
 
 ```{r}
 library(dplyr)
@@ -51,7 +49,7 @@ StormData2 <- filter(StormData2, format(BGN_DATE, "%Y") >= 1996)
 
 ```
 
-The variable EVTYPE contains all sort of types of weather events with case combinations of strings variable across the years. Make all the letters uppercase to fix this point.
+Now, EVTYPE is the key variable of interest. This has been inconsistently coded across years. The following effort was spent to clean this variable up.
 
 
 ```{r}
@@ -61,10 +59,9 @@ The variable EVTYPE contains all sort of types of weather events with case combi
 StormData2$EVTYPE <- toupper(trimws(StormData2$EVTYPE))
 # Remove multiple spaces
 StormData2$EVTYPE <- gsub("[[:space:]]+", " ", StormData2$EVTYPE)
-# Other typo substitution
+# Other typo substitutions
 StormData2$EVTYPE <- gsub("EXTREMELY|EXCESSIVE|EXCESSIVELY", "EXTREME", StormData2$EVTYPE)
 StormData2$EVTYPE <- gsub("FLOODINGINGS*|FLOOODING", "FLOOD", StormData2$EVTYPE)
-# StormData2$EVTYPE <- gsub("FLASH FLOODING.*", "FLOODING", StormData2$EVTYPE)
 StormData2$EVTYPE <- gsub("LIGHTNING\\.|LIGHTING|LIGNTNING", "LIGHTNING", StormData2$EVTYPE)
 StormData2$EVTYPE <- gsub("NON-", "NON ", StormData2$EVTYPE)
 StormData2$EVTYPE <- gsub("PROLONG", "PROLONGED", StormData2$EVTYPE)
@@ -112,6 +109,9 @@ StormData2$EVTYPE <- gsub("^NONE|^SUMMARY.*", "?", StormData2$EVTYPE)
 
 ```
 
+# Summarising Fatalities and Injuries
+
+Fatalities and Injuries are the two sets of information available to estimate the impact of the weather events on public health. To sum up the total fatalaties by event type, and taking the top 10 events, the following code was used. Injuries was also analysed similarly.
 
 ```{r}
 Top10FatByEvnt <- select(StormData2, EVTYPE, FATALITIES) %>%
@@ -128,7 +128,7 @@ Top10InjByEvnt <- select(StormData2, EVTYPE, INJURIES) %>%
 
 ```
 
-
+These may be plotted for more clarity:
 
 ```{r}
 # Plots for Human injuries
@@ -144,12 +144,18 @@ ggplot(Top10InjByEvnt, aes(x=EVTYPE, y=INJURIES)) +
 
 ```
 
+# Economic damage
 
+For estimating economic damage, property damage and crop damage information was provided. Each of this is coded in different units which is avaiable in EXP ending columns. Total damage was computed as shown in the code that follows. 
+
+Summaring the damage and plotting it is done in a similar fashion as in the previous section.
 
 ```{r}
 StormData2$PROPDMGEXP <- toupper(trimws(StormData2$PROPDMGEXP))
+# Standardising all the data in '000s 
 StormData2$PROP_DMG_K <- StormData2$PROPDMG*ifelse(StormData2$PROPDMGEXP =="K",1,ifelse(StormData2$PROPDMGEXP =="M",1000,ifelse(StormData2$PROPDMGEXP =="B",1e+06,ifelse(StormData2$PROPDMGEXP == "H",0.1,0.001))))
 StormData2$CROP_DMG_K <- StormData2$CROPDMG*ifelse(StormData2$CROPDMGEXP =="K",1,ifelse(StormData2$CROPDMGEXP =="M",1000,ifelse(StormData2$CROPDMGEXP =="B",1e+06,ifelse(StormData2$CROPDMGEXP == "H",0.1,0.001))))
+# Total damage is property damage + Crop damage
 StormData2$TOT_DMG_K <- StormData2$PROP_DMG_K + StormData2$CROP_DMG_K
 
 Top10DmgByEvnt <- select(StormData2, EVTYPE, TOT_DMG_K) %>%
